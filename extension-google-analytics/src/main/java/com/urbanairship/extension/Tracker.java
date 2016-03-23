@@ -1,7 +1,6 @@
 package com.urbanairship.extension;
 
 import android.net.Uri;
-import android.support.annotation.Nullable;
 
 import com.urbanairship.analytics.CustomEvent;
 
@@ -28,12 +27,11 @@ public class Tracker {
     public static final int UA_PROXY_ENABLED = 2;
 
     private final com.google.android.gms.analytics.Tracker tracker;
-    private final EventMapper eventMapper;
-    private final EventEditor eventEditor;
+    private final Factory factory;
     private final int proxySetting;
 
     /**
-     * Factory method to create a new UA Tracker with default the default proxy setting and event mapper.
+     * Factory method to create a new UA Tracker with default the default proxy setting and event factory.
      *
      * @param tracker The GA Tracker instance.
      * @return A new Tracker instance.
@@ -46,14 +44,12 @@ public class Tracker {
      * Constructor for creating the UA Tracker wrapper.
      *
      * @param tracker The GA Tracker instance.
-     * @param eventMapper The event JSON to custom event mapper.
-     * @param eventEditor The custom event editor.
+     * @param factory The custom event mapping factory.
      * @param proxySetting The event proxy setting.
      */
-    private Tracker(com.google.android.gms.analytics.Tracker tracker, EventMapper eventMapper, EventEditor eventEditor, int proxySetting) {
+    private Tracker(com.google.android.gms.analytics.Tracker tracker, Factory factory, int proxySetting) {
         this.tracker = tracker;
-        this.eventMapper = eventMapper;
-        this.eventEditor = eventEditor;
+        this.factory = factory;
         this.proxySetting = proxySetting;
     }
 
@@ -76,21 +72,12 @@ public class Tracker {
     }
 
     /**
-     * Method to return the event JSON to custom event mapper.
+     * Method to return the event JSON to custom event factory.
      *
-     * @return The event mapper.
+     * @return The event factory.
      */
-    public EventMapper getEventMapper() {
-        return eventMapper;
-    }
-
-    /**
-     * Method to return the custom event editor.
-     *
-     * @return The event editor.
-     */
-    public EventEditor getEventEditor() {
-        return eventEditor;
+    public Factory getFactory() {
+        return factory;
     }
 
     /**
@@ -105,9 +92,9 @@ public class Tracker {
 
     /**
      * Method to send the GA event payload. If UA proxying is enabled, a UA custom event will be created and dispatched.
-     * The EventMapper will map the event JSON and tracker fields to the custom event. If using the DefaultEventMapper,
+     * The Factory provides a method to map the event JSON and tracker fields to the custom event. If using the DefaultFactory,
      * the Custom Event will be named after the hit type with the relevant tracker and hit event fields as properties.
-     * If present, the EventEditor will be used to edit the custom event so that if the default event mapper is used,
+     * The factory can also be used to edit the custom event so that if the default event mapper is used,
      * any extra fields may still be added to or removed from the custom event.
      * See https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
      * for possible fields.
@@ -115,11 +102,8 @@ public class Tracker {
      * @param json The GA event json.
      */
     public void send(Map<String, String> json) {
-        CustomEvent.Builder customEvent = eventMapper.map(json, tracker);
-
-        if (eventEditor != null) {
-            eventEditor.edit(customEvent, json, tracker);
-        }
+        CustomEvent.Builder customEvent = factory.onCreateEvent(json, tracker);
+        factory.onPostCreate(customEvent, json, tracker);
 
         switch (proxySetting) {
             case GA_ENABLED:
@@ -140,10 +124,7 @@ public class Tracker {
     public static class Builder {
 
         private com.google.android.gms.analytics.Tracker tracker;
-        private EventMapper eventMapper = new DefaultEventMapper();
-
-        @Nullable
-        private EventEditor eventEditor = null;
+        private Factory factory = new DefaultFactory();
         private int proxySetting = GA_AND_UA_PROXY_ENABLED;
 
         private Builder() {}
@@ -160,24 +141,13 @@ public class Tracker {
         }
 
         /**
-         * Set the event JSON to custom event mapper. Defaults to DefaultEventMapper.
+         * Set the event JSON to custom event factory. Defaults to DefaultFactory.
          *
-         * @param eventMapper The event mapper.
+         * @param factory The event factory.
          * @return Builder
          */
-        public Builder setEventMapper(EventMapper eventMapper) {
-            this.eventMapper = eventMapper;
-            return this;
-        }
-
-        /**
-         * Set the custom event editor. Defaults to null.
-         *
-         * @param eventEditor The event editor.
-         * @return Builder
-         */
-        public Builder setEventEditor(@Nullable EventEditor eventEditor) {
-            this.eventEditor = eventEditor;
+        public Builder setFactory(Factory factory) {
+            this.factory = factory;
             return this;
         }
 
@@ -204,7 +174,7 @@ public class Tracker {
          * @return The UA Tracker instance.
          */
         public Tracker build() {
-            return new Tracker(tracker, eventMapper, eventEditor, proxySetting);
+            return new Tracker(tracker, factory, proxySetting);
         }
     }
 

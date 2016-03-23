@@ -9,10 +9,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Default implementation of EventMapper. Handles mapping screenview, event, social, exception, and
- * timing GA events to custom events.
+ * Default implementation of Factory. onCreateEvent handles mapping screenview, event, social, exception, and
+ * timing GA events to custom events. onPostCreate does nothing.
  */
-public class DefaultEventMapper implements EventMapper {
+public class DefaultFactory implements Factory {
 
     /**
      * Set of event hit type fields - includes category, action, label, and value."
@@ -40,10 +40,10 @@ public class DefaultEventMapper implements EventMapper {
      */
     public static final Set<String> TRACKER_FIELDS = new HashSet<>(Arrays.asList("tid", "cid", "uid", "ci", "gclid", "dclid"));
 
-    public DefaultEventMapper() {}
+    public DefaultFactory() {}
 
     @Override
-    public CustomEvent.Builder map(Map<String, String> json, Tracker tracker) {
+    public CustomEvent.Builder onCreateEvent(Map<String, String> json, Tracker tracker) {
         // Extract the GA event type
         String eventType = json.get("t");
 
@@ -88,4 +88,7 @@ public class DefaultEventMapper implements EventMapper {
 
         return customEvent;
     }
+
+    @Override
+    public void onPostCreate(CustomEvent.Builder customEvent, Map<String, String> json, com.google.android.gms.analytics.Tracker tracker) {}
 }
