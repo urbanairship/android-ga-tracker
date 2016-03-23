@@ -1,9 +1,8 @@
 package com.urbanairship.extension;
 
 import android.net.Uri;
+import android.support.annotation.Nullable;
 
-import com.google.android.gms.analytics.GoogleAnalytics;
-import com.urbanairship.UAirship;
 import com.urbanairship.analytics.CustomEvent;
 
 import java.util.Map;
@@ -13,39 +12,49 @@ import java.util.Map;
  */
 public class Tracker {
 
+    /**
+     * Proxy setting constant for sending only Google Analytics events.
+     */
+    public static final int GA_ENABLED = 0;
+
+    /**
+     * Proxy setting constant for sending both Google Analytics events and Urban Airship custom events.
+     */
+    public static final int GA_AND_UA_PROXY_ENABLED = 1;
+
+    /**
+     * Proxy setting constant for sending only Urban Airship custom events.
+     */
+    public static final int UA_PROXY_ENABLED = 2;
+
     private final com.google.android.gms.analytics.Tracker tracker;
-    private final TrackerConfiguration configuration;
+    private final EventMapper eventMapper;
+    private final EventEditor eventEditor;
+    private final int proxySetting;
 
     /**
-     * Factory method to create a new UA Tracker with default the default configuration.
+     * Factory method to create a new UA Tracker with default the default proxy setting and event mapper.
      *
-     * @param analytics The GoogleAnalytics instance.
-     * @param trackingId The tracking ID.
+     * @param tracker The GA Tracker instance.
      * @return A new Tracker instance.
      */
-    public static Tracker newTracker(GoogleAnalytics analytics, String trackingId) {
-        return newBuilder().setTracker(analytics, trackingId).build();
-    }
-
-    /**
-     * Factory method to create a new UA Tracker with default the default configuration.
-     *
-     * @param analytics The GoogleAnalytics instance.
-     * @param configResId The config resource ID.
-     * @return A new Tracker instance.
-     */
-    public static Tracker newTracker(GoogleAnalytics analytics, int configResId) {
-        return newBuilder().setTracker(analytics, configResId).build();
+    public static Tracker newTracker(com.google.android.gms.analytics.Tracker tracker) {
+        return newBuilder().setTracker(tracker).build();
     }
 
     /**
      * Constructor for creating the UA Tracker wrapper.
      *
      * @param tracker The GA Tracker instance.
+     * @param eventMapper The event JSON to custom event mapper.
+     * @param eventEditor The custom event editor.
+     * @param proxySetting The event proxy setting.
      */
-    private Tracker(com.google.android.gms.analytics.Tracker tracker, TrackerConfiguration configuration) {
+    private Tracker(com.google.android.gms.analytics.Tracker tracker, EventMapper eventMapper, EventEditor eventEditor, int proxySetting) {
         this.tracker = tracker;
-        this.configuration = configuration;
+        this.eventMapper = eventMapper;
+        this.eventEditor = eventEditor;
+        this.proxySetting = proxySetting;
     }
 
     /**
@@ -67,16 +76,140 @@ public class Tracker {
     }
 
     /**
-     * Method to return the TrackerConfiguration instance.
+     * Method to return the event JSON to custom event mapper.
      *
-     * @return The TrackerConfiguration instance.
+     * @return The event mapper.
      */
-    public TrackerConfiguration getTrackerConfiguration() {
-        return configuration;
+    public EventMapper getEventMapper() {
+        return eventMapper;
+    }
+
+    /**
+     * Method to return the custom event editor.
+     *
+     * @return The event editor.
+     */
+    public EventEditor getEventEditor() {
+        return eventEditor;
+    }
+
+    /**
+     * Method to return the proxy setting.
+     *
+     * @return The proxy setting.
+     */
+    public int getProxySetting() {
+        return proxySetting;
     }
 
 
-    // GA Tracker methods
+    /**
+     * Method to send the GA event payload. If UA proxying is enabled, a UA custom event will be created and dispatched.
+     * The EventMapper will map the event JSON and tracker fields to the custom event. If using the DefaultEventMapper,
+     * the Custom Event will be named after the hit type with the relevant tracker and hit event fields as properties.
+     * If present, the EventEditor will be used to edit the custom event so that if the default event mapper is used,
+     * any extra fields may still be added to or removed from the custom event.
+     * See https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
+     * for possible fields.
+     *
+     * @param json The GA event json.
+     */
+    public void send(Map<String, String> json) {
+        CustomEvent.Builder customEvent = eventMapper.map(json, tracker);
+
+        if (eventEditor != null) {
+            eventEditor.edit(customEvent, json, tracker);
+        }
+
+        switch (proxySetting) {
+            case GA_ENABLED:
+                tracker.send(json);
+                break;
+            case GA_AND_UA_PROXY_ENABLED:
+                tracker.send(json);
+                customEvent.addEvent();
+                break;
+            case UA_PROXY_ENABLED:
+                customEvent.addEvent();
+                break;
+            default:
+                tracker.send(json);
+        }
+    }
+
+    public static class Builder {
+
+        private com.google.android.gms.analytics.Tracker tracker;
+        private EventMapper eventMapper = new DefaultEventMapper();
+
+        @Nullable
+        private EventEditor eventEditor = null;
+        private int proxySetting = GA_AND_UA_PROXY_ENABLED;
+
+        private Builder() {}
+
+        /**
+         * Set the GA Tracker.
+         *
+         * @param tracker The Tracker instance.
+         * @return Builder
+         */
+        public Builder setTracker(com.google.android.gms.analytics.Tracker tracker) {
+            this.tracker = tracker;
+            return this;
+        }
+
+        /**
+         * Set the event JSON to custom event mapper. Defaults to DefaultEventMapper.
+         *
+         * @param eventMapper The event mapper.
+         * @return Builder
+         */
+        public Builder setEventMapper(EventMapper eventMapper) {
+            this.eventMapper = eventMapper;
+            return this;
+        }
+
+        /**
+         * Set the custom event editor. Defaults to null.
+         *
+         * @param eventEditor The event editor.
+         * @return Builder
+         */
+        public Builder setEventEditor(@Nullable EventEditor eventEditor) {
+            this.eventEditor = eventEditor;
+            return this;
+        }
+
+        /**
+         * Set the proxy setting.
+         *
+         * @param proxySetting The proxy setting. Possible values are:
+         * <br><ul>
+         * <li>GA_ENABLED
+         * <li>GA_AND_UA_PROXY_ENABLED
+         * <li>UA_PROXY_ENABLED
+         * </ul><br>
+         * Defaults to <code>GA_AND_UA_PROXY_ENABLED</code>
+         * @return Buidler
+         */
+        public Builder setProxySetting(int proxySetting) {
+            this.proxySetting = proxySetting;
+            return this;
+        }
+
+        /**
+         * Build the UA Tracker instance.
+         *
+         * @return The UA Tracker instance.
+         */
+        public Tracker build() {
+            return new Tracker(tracker, eventMapper, eventEditor, proxySetting);
+        }
+    }
+
+    // ******************** GA Tracker methods ******************** //
+
     public void enableAdvertisingIdCollection(boolean enabled) {
         tracker.enableAdvertisingIdCollection(enabled);
     }
@@ -145,158 +278,40 @@ public class Tracker {
         tracker.setPage(page);
     }
 
-     public void setReferrer(String referrer) {
-         tracker.setReferrer(referrer);
-     }
-
-     public void setSampleRate(double sampleRate) {
-         tracker.setSampleRate(sampleRate);
-     }
-
-     public void setScreenColors(String screenColors) {
-         tracker.setScreenColors(screenColors);
-     }
-
-     public void setScreenName(String screenName) {
-         tracker.setScreenName(screenName);
-     }
-
-     public void setScreenResolution(int width, int height) {
-         tracker.setScreenResolution(width, height);
-     }
-
-     public void setSessionTimeout(long sessionTimeout) {
-         tracker.setSessionTimeout(sessionTimeout);
-     }
-
-     public void setTitle(String title) {
-         tracker.setTitle(title);
-     }
-
-     public void setUseSecure(boolean useSecure) {
-         tracker.setUseSecure(useSecure);
-     }
-
-     public void setViewportSize(String viewportSize) {
-         tracker.setViewportSize(viewportSize);
-     }
-
-
-    /**
-     * Method to send the GA event payload. If UA proxying is enabled, a UA custom event will be created and dispatched.
-     * The Custom Event will be named after the hit type with the hit event fields as properties.
-     * The tracker level field names provided will then be used to include the correlated values from
-     * the GA Tracker in the Custom Event. See https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
-     * for possible fields.
-     *
-     * @param json The GA event json.
-     */
-    public void send(Map<String, String> json) {
-
-        // Extract the GA event type
-        String eventType = json.get("t");
-
-        // Create a custom event builder
-        CustomEvent.Builder customEvent = new CustomEvent.Builder(eventType);
-
-        // Extract the tracker level properties
-        for (String trackerField : configuration.getAllowedTrackerFields()) {
-            if (tracker.get(trackerField) != null) {
-                customEvent.addProperty(trackerField, tracker.get(trackerField));
-            }
-        }
-
-        // Extract event properties
-        for (Map.Entry<String, String> entry : json.entrySet()) {
-            customEvent.addProperty(entry.getKey(), entry.getValue());
-        }
-
-        switch (configuration.getProxySetting()) {
-            case TrackerConfiguration.GA_ENABLED:
-                tracker.send(json);
-                break;
-            case TrackerConfiguration.GA_AND_UA_PROXY_ENABLED:
-                tracker.send(json);
-                if (configuration.getAllowedHitTypes().contains(eventType)) {
-                    UAirship.shared().getAnalytics().addEvent(customEvent.create());
-                }
-                break;
-            case TrackerConfiguration.UA_PROXY_ENABLED:
-                if (configuration.getAllowedHitTypes().contains(eventType)) {
-                    UAirship.shared().getAnalytics().addEvent(customEvent.create());
-                }
-                break;
-            default:
-                tracker.send(json);
-        }
+    public void setReferrer(String referrer) {
+        tracker.setReferrer(referrer);
     }
 
-    public static class Builder {
-
-        private com.google.android.gms.analytics.Tracker tracker;
-        private TrackerConfiguration configuration = TrackerConfiguration.newBuilder()
-                .setProxySetting(TrackerConfiguration.GA_AND_UA_PROXY_ENABLED)
-                .setAllowedTrackerFields(TrackerConfiguration.DEFAULT_ALLOWED_TRACKER_FIELDS)
-                .setAllowedHitTypes(TrackerConfiguration.DEFAULT_ALLOWED_HIT_TYPES)
-                .build();
-
-        private Builder() {}
-
-        /**
-         * Set the GA Tracker.
-         *
-         * @param tracker The Tracker instance.
-         * @return Builder
-         */
-        public Builder setTracker(com.google.android.gms.analytics.Tracker tracker) {
-            this.tracker = tracker;
-            return this;
-        }
-
-        /**
-         * Set the GA Tracker with a new instance.
-         *
-         * @param analytics The GoogleAnalytics instance.
-         * @param trackingId The tacking ID.
-         * @return Builder
-         */
-        public Builder setTracker(GoogleAnalytics analytics, String trackingId) {
-            this.tracker = analytics.newTracker(trackingId);
-            return this;
-        }
-
-        /**
-         * Set the GA Tracker with a new instance.
-         *
-         * @param analytics The GoogleAnalytics instance.
-         * @param configResId The config resource ID.
-         * @return Builder
-         */
-        public Builder setTracker(GoogleAnalytics analytics, int configResId) {
-            this.tracker = analytics.newTracker(configResId);
-            return this;
-        }
-
-        /**
-         * Set the TrackerConfiguration instance. Defaults to an instance with default field settings.
-         *
-         * @param configuration The TrackerConfiguration instance.
-         * @return Builder
-         */
-        public Builder setTrackerConfiguration(TrackerConfiguration configuration) {
-            this.configuration = configuration;
-            return this;
-        }
-
-        /**
-         * Build the UA Tracker instance.
-         *
-         * @return The UA Tracker instance.
-         */
-        public Tracker build() {
-            return new Tracker(tracker, configuration);
-        }
+    public void setSampleRate(double sampleRate) {
+        tracker.setSampleRate(sampleRate);
     }
 
+    public void setScreenColors(String screenColors) {
+        tracker.setScreenColors(screenColors);
+    }
+
+    public void setScreenName(String screenName) {
+        tracker.setScreenName(screenName);
+    }
+
+    public void setScreenResolution(int width, int height) {
+        tracker.setScreenResolution(width, height);
+    }
+
+    public void setSessionTimeout(long sessionTimeout) {
+        tracker.setSessionTimeout(sessionTimeout);
+    }
+
+    public void setTitle(String title) {
+        tracker.setTitle(title);
+    }
+
+    public void setUseSecure(boolean useSecure) {
+        tracker.setUseSecure(useSecure);
+    }
+
+    public void setViewportSize(String viewportSize) {
+        tracker.setViewportSize(viewportSize);
+    }
 }
 
