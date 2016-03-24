@@ -1,65 +1,93 @@
 package com.urbanairship.extension;
 
 import android.net.Uri;
+import android.support.annotation.NonNull;
 
 import com.urbanairship.analytics.CustomEvent;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Urban Airship wrapper for the Google Analytics Tracker class.
  */
 public class Tracker {
+    /**
+     * Set of event hit type fields - includes category, action, label, and value."
+     */
+    public static final Set<String> EVENT_FIELDS = new HashSet<>(Arrays.asList("&ec", "&ea", "&el", "&ev"));
 
     /**
-     * Proxy setting constant for sending only Google Analytics events.
+     * Set of social hit type fields - includes network, action, target."
      */
-    public static final int GA_ENABLED = 0;
+    public static final Set<String> SOCIAL_FIELDS = new HashSet<>(Arrays.asList("&sn", "&sa", "&st"));
 
     /**
-     * Proxy setting constant for sending both Google Analytics events and Urban Airship custom events.
+     * Set of exception hit type fields - includes description and is fatal flag."
      */
-    public static final int GA_AND_UA_PROXY_ENABLED = 1;
+    public static final Set<String> EXCEPTION_FIELDS = new HashSet<>(Arrays.asList("&exd", "&exf"));
 
     /**
-     * Proxy setting constant for sending only Urban Airship custom events.
+     * Set of timing hit type fields - includes category, variable name, time, and label."
      */
-    public static final int UA_PROXY_ENABLED = 2;
+    public static final Set<String> TIMING_FIELDS = new HashSet<>(Arrays.asList("&utc", "&utv", "&utt", "&utl"));
+
+    /**
+     * Set of Tracker level fields included in custom events - includes protocol version, app name,
+     * tracking ID, client ID, user ID, campaign ID, Google AdWords ID, Google Display Ads ID.
+     */
+    public static final Set<String> TRACKER_FIELDS = new HashSet<>(Arrays.asList("&v", "&an", "&tid", "&cid", "&uid", "&ci", "&gclid", "&dclid"));
 
     private final com.google.android.gms.analytics.Tracker tracker;
-    private final Factory factory;
-    private final int proxySetting;
+    private final Set<Extender> extenders = new HashSet<>();
 
-    /**
-     * Factory method to create a new UA Tracker with default the default proxy setting and event factory.
-     *
-     * @param tracker The GA Tracker instance.
-     * @return A new Tracker instance.
-     */
-    public static Tracker newTracker(com.google.android.gms.analytics.Tracker tracker) {
-        return newBuilder().setTracker(tracker).build();
-    }
+    private boolean gaEnabled = true;
+    private boolean uaEnabled = false;
 
     /**
      * Constructor for creating the UA Tracker wrapper.
      *
      * @param tracker The GA Tracker instance.
-     * @param factory The custom event mapping factory.
-     * @param proxySetting The event proxy setting.
      */
-    private Tracker(com.google.android.gms.analytics.Tracker tracker, Factory factory, int proxySetting) {
+    public Tracker(com.google.android.gms.analytics.Tracker tracker) {
         this.tracker = tracker;
-        this.factory = factory;
-        this.proxySetting = proxySetting;
     }
 
     /**
-     * Method to create a new UA Tracker Builder.
+     * Set the flag to send events to GA. Defaults to <code>true</code>.
      *
-     * @return Builder
+     * @param enabled The flag - set to <code>true</code> to send events to GA, or <code>false</code>
+     *                to stop sending the events.
+     * @return The UA Tracker instance.
      */
-    public static Builder newBuilder() {
-        return new Builder();
+    public Tracker setGaEnabled(boolean enabled) {
+        gaEnabled = enabled;
+        return this;
+    }
+
+    /**
+     * Set the flag to send events to UA. Defaults to <code>false</code>.
+     *
+     * @param enabled The flag - set to <code>true</code> to send events to UA, or <code>false</code>
+     *                to stop sending the events.
+     * @return The UA Tracker instance.
+     */
+    public Tracker setUaEnabled(boolean enabled) {
+        uaEnabled = enabled;
+        return this;
+    }
+
+    /**
+     * Add a custom event extender.
+     *
+     * @param extender The event extender.
+     * @return The UA Tracker instance.
+     */
+    public Tracker addExtender(Extender extender) {
+        extenders.add(extender);
+        return this;
     }
 
     /**
@@ -72,114 +100,134 @@ public class Tracker {
     }
 
     /**
-     * Method to return the event JSON to custom event factory.
+     * Method to return the GA enabled flag.
      *
-     * @return The event factory.
+     * @return The GA enabled flag.
      */
-    public Factory getFactory() {
-        return factory;
+    public boolean isGaEnabled() {
+        return gaEnabled;
     }
 
     /**
-     * Method to return the proxy setting.
+     * Method to return the UA enabled flag.
      *
-     * @return The proxy setting.
+     * @return The UA enabled flag.
      */
-    public int getProxySetting() {
-        return proxySetting;
+    public boolean isUaEnabled() {
+        return uaEnabled;
     }
 
+    /**
+     * Method to return the set of custom event extenders.
+     *
+     * @return The set of custom event Extenders.
+     */
+    public Set<Extender> getExtenders() {
+        return extenders;
+    }
 
     /**
      * Method to send the GA event payload. If UA proxying is enabled, a UA custom event will be created and dispatched.
-     * The Factory provides a method to map the event JSON and tracker fields to the custom event. If using the DefaultFactory,
-     * the Custom Event will be named after the hit type with the relevant tracker and hit event fields as properties.
-     * The factory can also be used to edit the custom event so that if the default event mapper is used,
-     * any extra fields may still be added to or removed from the custom event.
-     * See https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
-     * for possible fields.
      *
      * @param json The GA event json.
      */
     public void send(Map<String, String> json) {
-        CustomEvent.Builder customEvent = factory.onCreateEvent(json, tracker);
-        factory.onPostCreate(customEvent, json, tracker);
+        if (gaEnabled) {
+            tracker.send(json);
+        }
 
-        switch (proxySetting) {
-            case GA_ENABLED:
-                tracker.send(json);
+        if (uaEnabled) {
+            createCustomEvent(json);
+        }
+    }
+
+    /**
+     * Method to map the event JSON and tracker fields to the custom event. Instead of overriding this
+     * method, the extenders can be used to add or remove other fields from the event JSON or Tracker.
+     * See https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
+     * for possible fields. Included event level fields:
+     *
+     * screenview - screen name
+     * event - category, action, value, label
+     * social - network, action, target
+     * timing - category, variable name, time, and label
+     * exception - description and is fatal flag
+     *
+     * Included tracker level fields - protocol version, app name, tracking ID, client ID, user ID,
+     * campaign ID, Google AdWords ID, Google Display Ads ID.
+     *
+     * @param json The event JSON.
+     */
+    protected void createCustomEvent(Map<String, String> json) {
+        CustomEvent.Builder customEvent = new CustomEvent.Builder(createEventName(json));
+
+        // Extract the GA event type
+        String eventType = json.get("&t");
+
+        // Extract the tracker level properties
+        for (String trackerField : TRACKER_FIELDS) {
+            if (tracker.get(trackerField) != null) {
+                customEvent.addProperty(trackerField, tracker.get(trackerField));
+            }
+        }
+
+        // Extract event properties
+        Set<String> fields = new HashSet<>();
+        switch (eventType) {
+            case "screenview":
+                customEvent.addProperty("&cd", tracker.get("&cd"));
                 break;
-            case GA_AND_UA_PROXY_ENABLED:
-                tracker.send(json);
-                customEvent.addEvent();
+            case "event":
+                fields = EVENT_FIELDS;
                 break;
-            case UA_PROXY_ENABLED:
-                customEvent.addEvent();
+            case "social":
+                fields = SOCIAL_FIELDS;
+                break;
+            case "exception":
+                fields = EXCEPTION_FIELDS;
+                break;
+            case "timing":
+                fields = TIMING_FIELDS;
                 break;
             default:
-                tracker.send(json);
+                break;
         }
+
+        for (String field : fields) {
+            String value = json.get(field);
+            if (value != null) {
+                customEvent.addProperty(field, value);
+            }
+        }
+
+        for (Extender extender : extenders) {
+            extender.extend(customEvent, json, tracker);
+        }
+
+        customEvent.addEvent();
     }
 
-    public static class Builder {
-
-        private com.google.android.gms.analytics.Tracker tracker;
-        private Factory factory = new DefaultFactory();
-        private int proxySetting = GA_AND_UA_PROXY_ENABLED;
-
-        private Builder() {}
-
-        /**
-         * Set the GA Tracker.
-         *
-         * @param tracker The Tracker instance.
-         * @return Builder
-         */
-        public Builder setTracker(com.google.android.gms.analytics.Tracker tracker) {
-            this.tracker = tracker;
-            return this;
-        }
-
-        /**
-         * Set the event JSON to custom event factory. Defaults to DefaultFactory.
-         *
-         * @param factory The event factory.
-         * @return Builder
-         */
-        public Builder setFactory(Factory factory) {
-            this.factory = factory;
-            return this;
-        }
-
-        /**
-         * Set the proxy setting.
-         *
-         * @param proxySetting The proxy setting. Possible values are:
-         * <br><ul>
-         * <li>GA_ENABLED
-         * <li>GA_AND_UA_PROXY_ENABLED
-         * <li>UA_PROXY_ENABLED
-         * </ul><br>
-         * Defaults to <code>GA_AND_UA_PROXY_ENABLED</code>
-         * @return Buidler
-         */
-        public Builder setProxySetting(int proxySetting) {
-            this.proxySetting = proxySetting;
-            return this;
-        }
-
-        /**
-         * Build the UA Tracker instance.
-         *
-         * @return The UA Tracker instance.
-         */
-        public Tracker build() {
-            return new Tracker(tracker, factory, proxySetting);
-        }
+    /**
+     * Generates the custom event name by extracting the hit event type from the event JSON.
+     *
+     * @param json The event JSON.
+     * @return The event name.
+     */
+    @NonNull
+    protected String createEventName(Map<String, String> json) {
+        // Extract the GA event type
+        return json.get("&t");
     }
 
-    // ******************** GA Tracker methods ******************** //
+    /**
+     * Interface to extend the custom event builder with more fields retrieved from the event JSON or GA Tracker.
+     */
+    interface Extender {
+        public void extend(CustomEvent.Builder builder, Map<String, String> json, com.google.android.gms.analytics.Tracker tracker);
+    }
 
+
+    // ****************** GA Tracker methods ****************** //
     public void enableAdvertisingIdCollection(boolean enabled) {
         tracker.enableAdvertisingIdCollection(enabled);
     }
