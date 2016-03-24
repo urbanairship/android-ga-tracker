@@ -69,7 +69,6 @@ public class TrackerTest {
         tracker.setScreenName("screenName");
         Map<String, String> event = new HitBuilders.ScreenViewBuilder().build();
         tracker.send(event);
-
     }
 
     @Test
@@ -170,7 +169,33 @@ public class TrackerTest {
         tracker.send(event);
     }
 
+    @Test
+    public void testExtender() {
 
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocation) throws Throwable {
+                CustomEvent customEvent = (CustomEvent) invocation.getArguments()[0];
+                EventTestUtils.validateEventValue(customEvent, "event_name", "screenview");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&cd", "\"screenName\"");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&vp", "\"viewportSize\"");
+                validateTrackerFields(customEvent);
+                return null;
+            }
+        }).when(analytics).addEvent(any(Event.class));
+
+        tracker.setScreenName("screenName");
+        Map<String, String> event = new HitBuilders.ScreenViewBuilder().build();
+
+        tracker.setViewportSize("viewportSize");
+        tracker.addExtender(new Tracker.Extender() {
+            @Override
+            public void extend(CustomEvent.Builder builder, Map<String, String> json, com.google.android.gms.analytics.Tracker tracker) {
+                builder.addProperty("&vp", tracker.get("&vp"));
+            }
+        });
+        tracker.send(event);
+    }
 
     private void validateTrackerFields(CustomEvent customEvent) throws Exception {
         EventTestUtils.validateNestedEventValue(customEvent, "properties", "&cid", "\"clientId\"");
