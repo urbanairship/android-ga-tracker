@@ -6,9 +6,11 @@ import android.support.annotation.NonNull;
 import com.urbanairship.analytics.CustomEvent;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Urban Airship wrapper for the Google Analytics Tracker class.
@@ -41,10 +43,10 @@ public class Tracker {
     public static final Set<String> TRACKER_FIELDS = new HashSet<>(Arrays.asList("&v", "&an", "&tid", "&cid", "&uid", "&ci", "&gclid", "&dclid"));
 
     private final com.google.android.gms.analytics.Tracker tracker;
-    private final Set<Extender> extenders = new HashSet<>();
+    private final Set<Extender> extenders = Collections.synchronizedSet(new HashSet<Extender>());
 
-    private boolean gaEnabled = true;
-    private boolean uaEnabled = false;
+    private AtomicBoolean gaEnabled = new AtomicBoolean(true);
+    private AtomicBoolean uaEnabled = new AtomicBoolean(false);
 
     /**
      * Constructor for creating the UA Tracker wrapper.
@@ -63,7 +65,7 @@ public class Tracker {
      * @return The UA Tracker instance.
      */
     public Tracker setGaEnabled(boolean enabled) {
-        gaEnabled = enabled;
+        gaEnabled.set(enabled);
         return this;
     }
 
@@ -75,7 +77,7 @@ public class Tracker {
      * @return The UA Tracker instance.
      */
     public Tracker setUaEnabled(boolean enabled) {
-        uaEnabled = enabled;
+        uaEnabled.set(enabled);
         return this;
     }
 
@@ -105,7 +107,7 @@ public class Tracker {
      * @return The GA enabled flag.
      */
     public boolean isGaEnabled() {
-        return gaEnabled;
+        return gaEnabled.get();
     }
 
     /**
@@ -114,7 +116,7 @@ public class Tracker {
      * @return The UA enabled flag.
      */
     public boolean isUaEnabled() {
-        return uaEnabled;
+        return uaEnabled.get();
     }
 
     /**
@@ -132,11 +134,11 @@ public class Tracker {
      * @param json The GA event json.
      */
     public void send(Map<String, String> json) {
-        if (gaEnabled) {
+        if (gaEnabled.get()) {
             tracker.send(json);
         }
 
-        if (uaEnabled) {
+        if (uaEnabled.get()) {
             createCustomEvent(json);
         }
     }
