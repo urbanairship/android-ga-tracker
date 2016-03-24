@@ -5,12 +5,11 @@ import android.support.annotation.NonNull;
 
 import com.urbanairship.analytics.CustomEvent;
 
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Urban Airship wrapper for the Google Analytics Tracker class.
@@ -43,10 +42,10 @@ public class Tracker {
     public static final Set<String> TRACKER_FIELDS = new HashSet<>(Arrays.asList("&v", "&an", "&tid", "&cid", "&uid", "&ci", "&gclid", "&dclid"));
 
     private final com.google.android.gms.analytics.Tracker tracker;
-    private final Set<Extender> extenders = Collections.synchronizedSet(new HashSet<Extender>());
+    private final Set<Extender> extenders = new HashSet<>();
 
-    private AtomicBoolean gaEnabled = new AtomicBoolean(true);
-    private AtomicBoolean uaEnabled = new AtomicBoolean(false);
+    private volatile boolean gaEnabled = true;
+    private volatile boolean uaEnabled = true;
 
     /**
      * Constructor for creating the UA Tracker wrapper.
@@ -65,7 +64,7 @@ public class Tracker {
      * @return The UA Tracker instance.
      */
     public Tracker setGaEnabled(boolean enabled) {
-        gaEnabled.set(enabled);
+        gaEnabled = enabled;
         return this;
     }
 
@@ -77,7 +76,7 @@ public class Tracker {
      * @return The UA Tracker instance.
      */
     public Tracker setUaEnabled(boolean enabled) {
-        uaEnabled.set(enabled);
+        uaEnabled = enabled;
         return this;
     }
 
@@ -107,7 +106,7 @@ public class Tracker {
      * @return The GA enabled flag.
      */
     public boolean isGaEnabled() {
-        return gaEnabled.get();
+        return gaEnabled;
     }
 
     /**
@@ -116,7 +115,7 @@ public class Tracker {
      * @return The UA enabled flag.
      */
     public boolean isUaEnabled() {
-        return uaEnabled.get();
+        return uaEnabled;
     }
 
     /**
@@ -134,11 +133,11 @@ public class Tracker {
      * @param json The GA event json.
      */
     public void send(Map<String, String> json) {
-        if (gaEnabled.get()) {
+        if (gaEnabled) {
             tracker.send(json);
         }
 
-        if (uaEnabled.get()) {
+        if (uaEnabled) {
             createCustomEvent(json);
         }
     }
@@ -163,9 +162,6 @@ public class Tracker {
     protected void createCustomEvent(Map<String, String> json) {
         CustomEvent.Builder customEvent = new CustomEvent.Builder(createEventName(json));
 
-        // Extract the GA event type
-        String eventType = json.get("&t");
-
         // Extract the tracker level properties
         for (String trackerField : TRACKER_FIELDS) {
             if (tracker.get(trackerField) != null) {
@@ -173,7 +169,7 @@ public class Tracker {
             }
         }
 
-        // Extract event properties
+        String eventType = json.get("&t");
         Set<String> fields = new HashSet<>();
         switch (eventType) {
             case "screenview":
@@ -195,6 +191,7 @@ public class Tracker {
                 break;
         }
 
+        // Extract event properties
         for (String field : fields) {
             String value = json.get(field);
             if (value != null) {
@@ -202,7 +199,8 @@ public class Tracker {
             }
         }
 
-        for (Extender extender : extenders) {
+        // Apply custom event extenders
+        for (Extender extender : new ArrayList<>(extenders)) {
             extender.extend(customEvent, json, tracker);
         }
 
@@ -229,7 +227,8 @@ public class Tracker {
     }
 
 
-    // ****************** GA Tracker methods ****************** //
+    // ***************** Google Analytics Tracker methods ***************** //
+
     public void enableAdvertisingIdCollection(boolean enabled) {
         tracker.enableAdvertisingIdCollection(enabled);
     }
