@@ -59,6 +59,7 @@ public class TrackerTest {
             @Override
             public Object answer(InvocationOnMock invocation) throws Throwable {
                 CustomEvent customEvent = (CustomEvent) invocation.getArguments()[0];
+                EventTestUtils.validateEventValue(customEvent, "event_name", "screenview");
                 EventTestUtils.validateNestedEventValue(customEvent, "properties", "&cd", "\"screenName\"");
                 validateTrackerFields(customEvent);
                 return null;
@@ -77,6 +78,7 @@ public class TrackerTest {
             @Override
             public Object answer(InvocationOnMock invocation) throws Throwable {
                 CustomEvent customEvent = (CustomEvent) invocation.getArguments()[0];
+                EventTestUtils.validateEventValue(customEvent, "event_name", "event");
                 EventTestUtils.validateNestedEventValue(customEvent, "properties", "&ec", "\"category\"");
                 EventTestUtils.validateNestedEventValue(customEvent, "properties", "&ea", "\"action\"");
                 EventTestUtils.validateNestedEventValue(customEvent, "properties", "&el", "\"label\"");
@@ -95,6 +97,80 @@ public class TrackerTest {
                 .build();
         tracker.send(event);
     }
+
+    @Test
+    public void testSocial() {
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocation) throws Throwable {
+                CustomEvent customEvent = (CustomEvent) invocation.getArguments()[0];
+                EventTestUtils.validateEventValue(customEvent, "event_name", "social");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&sn", "\"network\"");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&sa", "\"action\"");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&st", "\"target\"");
+
+                validateTrackerFields(customEvent);
+                return null;
+            }
+        }).when(analytics).addEvent(any(Event.class));
+
+        Map<String, String> event = new HitBuilders.SocialBuilder()
+                .setAction("action")
+                .setNetwork("network")
+                .setTarget("target")
+                .build();
+        tracker.send(event);
+    }
+
+    @Test
+    public void testTiming() {
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocation) throws Throwable {
+                CustomEvent customEvent = (CustomEvent) invocation.getArguments()[0];
+                EventTestUtils.validateEventValue(customEvent, "event_name", "timing");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&utc", "\"category\"");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&utv", "\"variable\"");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&utt", "\"5\"");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&utl", "\"label\"");
+
+                validateTrackerFields(customEvent);
+                return null;
+            }
+        }).when(analytics).addEvent(any(Event.class));
+
+        Map<String, String> event = new HitBuilders.TimingBuilder()
+                .setVariable("variable")
+                .setCategory("category")
+                .setLabel("label")
+                .setValue(5)
+                .build();
+        tracker.send(event);
+    }
+
+    @Test
+    public void testException() {
+        doAnswer(new Answer() {
+            @Override
+            public Object answer(InvocationOnMock invocation) throws Throwable {
+                CustomEvent customEvent = (CustomEvent) invocation.getArguments()[0];
+                EventTestUtils.validateEventValue(customEvent, "event_name", "exception");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&exd", "\"description\"");
+                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&exf", "\"0\"");
+
+                validateTrackerFields(customEvent);
+                return null;
+            }
+        }).when(analytics).addEvent(any(Event.class));
+
+        Map<String, String> event = new HitBuilders.ExceptionBuilder()
+                .setDescription("description")
+                .setFatal(false)
+                .build();
+        tracker.send(event);
+    }
+
+
 
     private void validateTrackerFields(CustomEvent customEvent) throws Exception {
         EventTestUtils.validateNestedEventValue(customEvent, "properties", "&cid", "\"clientId\"");
