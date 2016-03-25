@@ -1,8 +1,9 @@
-package com.urbanairship.extension;
+package com.urbanairship.extension.analytics;
 
 import android.net.Uri;
 import android.support.annotation.NonNull;
 
+import com.google.android.gms.analytics.Tracker;
 import com.urbanairship.analytics.CustomEvent;
 
 import java.util.ArrayList;
@@ -14,45 +15,45 @@ import java.util.Set;
 /**
  * Urban Airship wrapper for the Google Analytics Tracker class.
  */
-public class Tracker {
+public class GoogleAnalyticsTracker {
     /**
      * Set of event hit type fields - includes category, action, label, and value."
      */
-    public static final Set<String> EVENT_FIELDS = new HashSet<>(Arrays.asList("&ec", "&ea", "&el", "&ev"));
+    private static final Set<String> EVENT_FIELDS = new HashSet<>(Arrays.asList("&ec", "&ea", "&el", "&ev"));
 
     /**
      * Set of social hit type fields - includes network, action, target."
      */
-    public static final Set<String> SOCIAL_FIELDS = new HashSet<>(Arrays.asList("&sn", "&sa", "&st"));
+    private static final Set<String> SOCIAL_FIELDS = new HashSet<>(Arrays.asList("&sn", "&sa", "&st"));
 
     /**
      * Set of exception hit type fields - includes description and is fatal flag."
      */
-    public static final Set<String> EXCEPTION_FIELDS = new HashSet<>(Arrays.asList("&exd", "&exf"));
+    private static final Set<String> EXCEPTION_FIELDS = new HashSet<>(Arrays.asList("&exd", "&exf"));
 
     /**
      * Set of timing hit type fields - includes category, variable name, time, and label."
      */
-    public static final Set<String> TIMING_FIELDS = new HashSet<>(Arrays.asList("&utc", "&utv", "&utt", "&utl"));
+    private static final Set<String> TIMING_FIELDS = new HashSet<>(Arrays.asList("&utc", "&utv", "&utt", "&utl"));
 
     /**
      * Set of Tracker level fields included in custom events - includes protocol version, app name,
      * tracking ID, client ID, user ID, campaign ID, Google AdWords ID, Google Display Ads ID.
      */
-    public static final Set<String> TRACKER_FIELDS = new HashSet<>(Arrays.asList("&v", "&an", "&tid", "&cid", "&uid", "&ci", "&gclid", "&dclid"));
+    private static final Set<String> TRACKER_FIELDS = new HashSet<>(Arrays.asList("&v", "&an", "&tid", "&cid", "&uid", "&ci", "&gclid", "&dclid"));
 
-    private final com.google.android.gms.analytics.Tracker tracker;
+    private final Tracker tracker;
     private final Set<Extender> extenders = new HashSet<>();
 
-    private volatile boolean gaEnabled = true;
-    private volatile boolean uaEnabled = true;
+    private volatile boolean googleAnalyticsEnabled = true;
+    private volatile boolean urbanAirshipEnabled = true;
 
     /**
      * Constructor for creating the UA Tracker wrapper.
      *
      * @param tracker The GA Tracker instance.
      */
-    public Tracker(com.google.android.gms.analytics.Tracker tracker) {
+    public GoogleAnalyticsTracker(Tracker tracker) {
         this.tracker = tracker;
     }
 
@@ -63,8 +64,8 @@ public class Tracker {
      *                to stop sending the events.
      * @return The UA Tracker instance.
      */
-    public Tracker setGaEnabled(boolean enabled) {
-        gaEnabled = enabled;
+    public GoogleAnalyticsTracker setGoogleAnalyticsEnabled(boolean enabled) {
+        googleAnalyticsEnabled = enabled;
         return this;
     }
 
@@ -75,8 +76,8 @@ public class Tracker {
      *                to stop sending the events.
      * @return The UA Tracker instance.
      */
-    public Tracker setUaEnabled(boolean enabled) {
-        uaEnabled = enabled;
+    public GoogleAnalyticsTracker setUrbanAirshipEnabled(boolean enabled) {
+        urbanAirshipEnabled = enabled;
         return this;
     }
 
@@ -86,7 +87,7 @@ public class Tracker {
      * @param extender The event extender.
      * @return The UA Tracker instance.
      */
-    public Tracker addExtender(Extender extender) {
+    public GoogleAnalyticsTracker addExtender(Extender extender) {
         extenders.add(extender);
         return this;
     }
@@ -96,7 +97,7 @@ public class Tracker {
      *
      * @return The GA Tracker instance.
      */
-    public com.google.android.gms.analytics.Tracker getGaTracker() {
+    public Tracker getTracker() {
         return tracker;
     }
 
@@ -105,8 +106,8 @@ public class Tracker {
      *
      * @return The GA enabled flag.
      */
-    public boolean isGaEnabled() {
-        return gaEnabled;
+    public boolean isGoogleAnalyticsEnabled() {
+        return googleAnalyticsEnabled;
     }
 
     /**
@@ -114,17 +115,8 @@ public class Tracker {
      *
      * @return The UA enabled flag.
      */
-    public boolean isUaEnabled() {
-        return uaEnabled;
-    }
-
-    /**
-     * Method to return the set of custom event extenders.
-     *
-     * @return The set of custom event Extenders.
-     */
-    public Set<Extender> getExtenders() {
-        return extenders;
+    public boolean isUrbanAirshipEnabled() {
+        return urbanAirshipEnabled;
     }
 
     /**
@@ -133,11 +125,11 @@ public class Tracker {
      * @param json The GA event json.
      */
     public void send(Map<String, String> json) {
-        if (gaEnabled) {
+        if (googleAnalyticsEnabled) {
             tracker.send(json);
         }
 
-        if (uaEnabled) {
+        if (urbanAirshipEnabled) {
             createCustomEvent(json);
         }
     }
@@ -160,7 +152,7 @@ public class Tracker {
      * @param json The event JSON.
      */
     protected void createCustomEvent(Map<String, String> json) {
-        CustomEvent.Builder customEvent = new CustomEvent.Builder(createEventName(json));
+        CustomEvent.Builder customEvent = new CustomEvent.Builder(getEventName(json));
 
         // Extract the tracker level properties
         for (String trackerField : TRACKER_FIELDS) {
@@ -201,7 +193,7 @@ public class Tracker {
 
         // Apply custom event extenders
         for (Extender extender : new ArrayList<>(extenders)) {
-            extender.extend(customEvent, json, tracker);
+            extender.extend(customEvent, json, this);
         }
 
         customEvent.addEvent();
@@ -214,16 +206,16 @@ public class Tracker {
      * @return The event name.
      */
     @NonNull
-    protected String createEventName(Map<String, String> json) {
+    protected String getEventName(Map<String, String> json) {
         // Extract the GA event type
         return json.get("&t");
     }
 
     /**
-     * Interface to extend the custom event builder with more fields retrieved from the event JSON or GA Tracker.
+     * Interface to extend the custom event builder with more fields retrieved from the event JSON or Tracker.
      */
     interface Extender {
-        public void extend(CustomEvent.Builder builder, Map<String, String> json, com.google.android.gms.analytics.Tracker tracker);
+        void extend(CustomEvent.Builder builder, Map<String, String> json, GoogleAnalyticsTracker tracker);
     }
 
 

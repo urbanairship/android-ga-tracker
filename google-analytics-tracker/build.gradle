@@ -1,6 +1,6 @@
 group = 'com.urbanairship.android'
 version = '1.0.0'
-description = "Urban Airship event templates"
+description = "Urban Airship Google Analytics tracker"
 
 
 apply plugin: 'com.android.library'
@@ -34,7 +34,7 @@ install {
         pom.project {
             packaging 'aar'
             groupId project.group
-            artifactId 'extension-google-analytics'
+            artifactId 'google-analytics-tracker'
 
             name project.name
             description project.description

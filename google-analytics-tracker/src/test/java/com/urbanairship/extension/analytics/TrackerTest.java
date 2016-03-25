@@ -1,4 +1,4 @@
-package com.urbanairship.extension;
+package com.urbanairship.extension.analytics;
 
 import com.google.android.gms.analytics.GoogleAnalytics;
 import com.google.android.gms.analytics.HitBuilders;
@@ -8,6 +8,7 @@ import com.urbanairship.analytics.Analytics;
 import com.urbanairship.analytics.CustomEvent;
 import com.urbanairship.analytics.Event;
 import com.urbanairship.analytics.EventTestUtils;
+import com.urbanairship.extension.BuildConfig;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -22,17 +23,17 @@ import org.robolectric.annotation.Config;
 
 import java.util.Map;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.junit.Assert.assertTrue;
 
 @RunWith(RobolectricGradleTestRunner.class)
 @Config(sdk = 21, constants = BuildConfig.class)
 public class TrackerTest {
 
-    Tracker tracker;
+    GoogleAnalyticsTracker tracker;
     Analytics analytics;
 
     @Rule
@@ -44,9 +45,9 @@ public class TrackerTest {
         analytics = mock(Analytics.class);
         when(airship.getAnalytics()).thenReturn(analytics);
 
-        tracker = new Tracker(GoogleAnalytics.getInstance(RuntimeEnvironment.application).newTracker("trackingId"))
-                .setGaEnabled(false)
-                .setUaEnabled(true);
+        tracker = new GoogleAnalyticsTracker(GoogleAnalytics.getInstance(RuntimeEnvironment.application).newTracker("trackingId"))
+                .setGoogleAnalyticsEnabled(false)
+                .setUrbanAirshipEnabled(true);
 
         tracker.setAppName("appName");
         tracker.setClientId("clientId");
@@ -188,9 +189,9 @@ public class TrackerTest {
         Map<String, String> event = new HitBuilders.ScreenViewBuilder().build();
 
         tracker.setViewportSize("viewportSize");
-        tracker.addExtender(new Tracker.Extender() {
+        tracker.addExtender(new GoogleAnalyticsTracker.Extender() {
             @Override
-            public void extend(CustomEvent.Builder builder, Map<String, String> json, com.google.android.gms.analytics.Tracker tracker) {
+            public void extend(CustomEvent.Builder builder, Map<String, String> json, GoogleAnalyticsTracker tracker) {
                 builder.addProperty("&vp", tracker.get("&vp"));
             }
         });

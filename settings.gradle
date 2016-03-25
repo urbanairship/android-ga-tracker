@@ -1,1 +1,1 @@
-include ':extension-google-analytics'
+include ':google-analytics-tracker'
