@@ -24,10 +24,12 @@ import org.robolectric.annotation.Config;
 import java.util.Map;
 
 import static org.junit.Assert.assertTrue;
+
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+
 
 @RunWith(RobolectricGradleTestRunner.class)
 @Config(sdk = 21, constants = BuildConfig.class)
@@ -61,7 +63,6 @@ public class TrackerTest {
             public Object answer(InvocationOnMock invocation) throws Throwable {
                 CustomEvent customEvent = (CustomEvent) invocation.getArguments()[0];
                 EventTestUtils.validateEventValue(customEvent, "event_name", "screenview");
-                EventTestUtils.validateNestedEventValue(customEvent, "properties", "&cd", "\"screenName\"");
                 validateTrackerFields(customEvent);
                 return null;
             }
@@ -192,6 +193,7 @@ public class TrackerTest {
         tracker.addExtender(new GoogleAnalyticsTracker.Extender() {
             @Override
             public void extend(CustomEvent.Builder builder, Map<String, String> json, GoogleAnalyticsTracker tracker) {
+                builder.addProperty("&cd", tracker.get("&cd"));
                 builder.addProperty("&vp", tracker.get("&vp"));
             }
         });
@@ -199,9 +201,8 @@ public class TrackerTest {
     }
 
     private void validateTrackerFields(CustomEvent customEvent) throws Exception {
-        EventTestUtils.validateNestedEventValue(customEvent, "properties", "&cid", "\"clientId\"");
         EventTestUtils.validateNestedEventValue(customEvent, "properties", "&an", "\"appName\"");
         EventTestUtils.validateNestedEventValue(customEvent, "properties", "&tid", "\"trackingId\"");
-        assertTrue(EventTestUtils.getEventData(customEvent).getJSONObject("properties").opt("&uid") == null);
+        assertTrue(EventTestUtils.getEventData(customEvent).get("properties").optMap().opt("&uid").getString() == null);
     }
 }
