@@ -13,6 +13,7 @@ import com.urbanairship.analytics.CustomEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -20,13 +21,22 @@ import java.util.Set;
  * Urban Airship wrapper for the Google Analytics Tracker class.
  */
 public class GoogleAnalyticsTracker {
+
     /**
-     * Set of Tracker level fields included in custom events - includes protocol version, app name,
-     * tracking ID, client ID, user ID, campaign ID, Google AdWords ID, Google Display Ads ID.
-     * &dr, &cn, &cs, &cm, &ck, &cc, &ci,&dl, &dh, &dp, &dt, &cd, &av, &aid
+     * Set of Tracker level fields included in custom events - includes Protocol Version, App Name,
+     * Tracking ID, User ID, Document Referrer, Campaign Name, Campaign Source, Campaign Medium,
+     * Campaign Keyword, Campaign Content, Campaign ID, Google AdWords ID, Google Display Ads ID,
+     * Document location URL, Document Host Name, Document Path, Document Title, Screen Name,
+     * Application Version, Application ID, and Application Installer ID.
+     *
+     * Client ID is not included here due to the possible deadlock incited by its retrieval while an
+     * event is being sent. If you would like to include the Client ID as a parameter, we recommend
+     * retrieving the value once when the Tracker instance is created in the Application class before
+     * including the field in an Extender. This will cache the value and prevent any future race conditions.
      */
-    // TODO update tracker fields
-    private static final Set<String> TRACKER_FIELDS = new HashSet<>(Arrays.asList("&v", "&an", "&tid", "&uid", "&ci", "&gclid", "&dclid"));
+    public static final List<String> TRACKER_FIELDS = Arrays.asList("&v", "&an", "&tid", "&uid",
+            "&dr", "&cn", "&cs", "&cm", "&ck", "&cc", "&ci", "&gclid", "&dclid", "&dl", "&dh", "&dp",
+            "&dt", "&cd", "&av", "&aid", "&aiid");
 
     private final Tracker tracker;
     private final Set<Extender> extenders = new HashSet<>();
@@ -122,12 +132,10 @@ public class GoogleAnalyticsTracker {
 
     /**
      * Method to map the event JSON and tracker fields to the custom event. Instead of overriding this
-     * method, the extenders can be used to add or remove other fields from the event JSON or Tracker.
+     * method, the extenders can be used to add other fields from the event JSON or Tracker.
      * See https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
-     * for possible fields. Includes all event level fields.
-     *
-     * Included tracker level fields - protocol version, app name, tracking ID, client ID, user ID,
-     * campaign ID, Google AdWords ID, Google Display Ads ID.
+     * for possible fields. Includes all event level fields and tracker level fields provided by
+     * {@link #TRACKER_FIELDS}.
      *
      * @param json The event JSON.
      */
