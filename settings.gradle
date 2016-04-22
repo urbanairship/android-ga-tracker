@@ -1,1 +1,1 @@
-include ':google-analytics-tracker'
+include ':ga-tracker'

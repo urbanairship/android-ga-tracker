@@ -1,3 +1,7 @@
+/*
+ Copyright 2016 Urban Airship and Contributors
+*/
+
 package com.urbanairship.extension.analytics;
 
 import android.net.Uri;
@@ -17,30 +21,12 @@ import java.util.Set;
  */
 public class GoogleAnalyticsTracker {
     /**
-     * Set of event hit type fields - includes category, action, label, and value."
-     */
-    private static final Set<String> EVENT_FIELDS = new HashSet<>(Arrays.asList("&ec", "&ea", "&el", "&ev"));
-
-    /**
-     * Set of social hit type fields - includes network, action, target."
-     */
-    private static final Set<String> SOCIAL_FIELDS = new HashSet<>(Arrays.asList("&sn", "&sa", "&st"));
-
-    /**
-     * Set of exception hit type fields - includes description and is fatal flag."
-     */
-    private static final Set<String> EXCEPTION_FIELDS = new HashSet<>(Arrays.asList("&exd", "&exf"));
-
-    /**
-     * Set of timing hit type fields - includes category, variable name, time, and label."
-     */
-    private static final Set<String> TIMING_FIELDS = new HashSet<>(Arrays.asList("&utc", "&utv", "&utt", "&utl"));
-
-    /**
      * Set of Tracker level fields included in custom events - includes protocol version, app name,
      * tracking ID, client ID, user ID, campaign ID, Google AdWords ID, Google Display Ads ID.
+     * &dr, &cn, &cs, &cm, &ck, &cc, &ci,&dl, &dh, &dp, &dt, &cd, &av, &aid
      */
-    private static final Set<String> TRACKER_FIELDS = new HashSet<>(Arrays.asList("&v", "&an", "&tid", "&cid", "&uid", "&ci", "&gclid", "&dclid"));
+    // TODO update tracker fields
+    private static final Set<String> TRACKER_FIELDS = new HashSet<>(Arrays.asList("&v", "&an", "&tid", "&uid", "&ci", "&gclid", "&dclid"));
 
     private final Tracker tracker;
     private final Set<Extender> extenders = new HashSet<>();
@@ -124,7 +110,7 @@ public class GoogleAnalyticsTracker {
      *
      * @param json The GA event json.
      */
-    public void send(Map<String, String> json) {
+    public void send(final Map<String, String> json) {
         if (googleAnalyticsEnabled) {
             tracker.send(json);
         }
@@ -138,13 +124,7 @@ public class GoogleAnalyticsTracker {
      * Method to map the event JSON and tracker fields to the custom event. Instead of overriding this
      * method, the extenders can be used to add or remove other fields from the event JSON or Tracker.
      * See https://developers.google.com/analytics/devguides/collection/protocol/v1/parameters
-     * for possible fields. Included event level fields:
-     *
-     * screenview - screen name
-     * event - category, action, value, label
-     * social - network, action, target
-     * timing - category, variable name, time, and label
-     * exception - description and is fatal flag
+     * for possible fields. Includes all event level fields.
      *
      * Included tracker level fields - protocol version, app name, tracking ID, client ID, user ID,
      * campaign ID, Google AdWords ID, Google Display Ads ID.
@@ -161,33 +141,10 @@ public class GoogleAnalyticsTracker {
             }
         }
 
-        String eventType = json.get("&t");
-        Set<String> fields = new HashSet<>();
-        switch (eventType) {
-            case "screenview":
-                customEvent.addProperty("&cd", tracker.get("&cd"));
-                break;
-            case "event":
-                fields = EVENT_FIELDS;
-                break;
-            case "social":
-                fields = SOCIAL_FIELDS;
-                break;
-            case "exception":
-                fields = EXCEPTION_FIELDS;
-                break;
-            case "timing":
-                fields = TIMING_FIELDS;
-                break;
-            default:
-                break;
-        }
-
-        // Extract event properties
-        for (String field : fields) {
-            String value = json.get(field);
-            if (value != null) {
-                customEvent.addProperty(field, value);
+        // Extract all event properties
+        for (Map.Entry<String, String> entry : json.entrySet()) {
+            if (entry.getValue() != null) {
+                customEvent.addProperty(entry.getKey(), entry.getValue());
             }
         }
 

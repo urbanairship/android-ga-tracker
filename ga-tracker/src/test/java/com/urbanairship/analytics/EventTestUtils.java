@@ -25,8 +25,9 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 package com.urbanairship.analytics;
 
+import com.urbanairship.json.JsonMap;
+
 import org.json.JSONException;
-import org.json.JSONObject;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNull;
@@ -45,7 +46,7 @@ public class EventTestUtils {
         if (expectedValue == null) {
             assertNull("Event's value should not be set.", event.getEventData().opt(key));
         } else {
-            assertEquals("Event's value for " + key + " is unexpected.", expectedValue, event.getEventData().getString(key));
+            assertEquals("Event's value for " + key + " is unexpected.", expectedValue, event.getEventData().get(key).getString());
         }
     }
 
@@ -59,7 +60,7 @@ public class EventTestUtils {
      * @throws JSONException
      */
     public static void validateNestedEventValue(Event event, String key, String nestedKey, String expectedValue) throws JSONException {
-        assertEquals("Event's value for " + key + " is unexpected.", expectedValue, event.getEventData().getJSONObject(key).getString(nestedKey));
+        assertEquals("Event's value for " + key + " is unexpected.", expectedValue, event.getEventData().get(key).optMap().get(nestedKey).getString());
     }
 
     /**
@@ -67,7 +68,7 @@ public class EventTestUtils {
      * @param event The event.
      * @return The event's data.
      */
-    public static JSONObject getEventData(Event event) {
+    public static JsonMap getEventData(Event event) {
         return event.getEventData();
     }
 }
