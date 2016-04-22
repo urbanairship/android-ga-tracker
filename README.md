@@ -20,51 +20,51 @@ dependencies {
 }
 ```
 
-## Required Dependencies
+## Usage
 
-The project must already be integrated with the Urban Airship SDK version 7.1.0 or higher.
-
-Analytics must be enabled to use this feature.
-
-- Verify analytics is enabled
+Following the pattern provided in the [Google Analytics guide](https://developers.google.com/analytics/devguides/collection/android/v4/#set-up-your-project),
+first create a GoogleAnalyticsTracker instance in your Application class
 
 ```java
-    boolean analyticsEnabled = UAirship.shared().getAnalytics().isEnabled();
-```
 
-- Enable analytics, if it isn't already enabled
+public class YourApplication extends Application {
+  private GoogleAnalyticsTracker uaTracker;
 
-```java
-    UAirship.shared().getAnalytics().setEnabled(true);
-```
+  synchronized public Tracker getDefaultTracker() {
+    if (uaTracker == null) {
+      // Create a Tracker instance and wrap it in a GoogleAnalyticsTracker instance
+      GoogleAnalytics analytics = GoogleAnalytics.getInstance(this);
+      Tracker tracker = analytics.newTracker(R.xml.global_tracker);
+      uaTracker = new GoogleAnalyticsTracker(tracker);
 
-## Example
+      // The proxy settings can be easily configured to prevent forwarding events to either Urban Airship or Google Analytics.
+      // Enable GA tracker (enabled by default)
+      uaTracker.setGoogleAnalyticsEnabled(true);
 
-Using the GoogleAnalyticsTracker:
+      // Enable UA tracker (enabled by default)
+      uaTracker.setUrbanAirshipEnabled(true);
 
-```java
-// First create a Google Analytics Tracker
-GoogleAnalytics analytics = GoogleAnalytics.getInstance(this);
-tracker = analytics.newTracker("trackingId");
+      // Add an Extender to add properties to the generated customEvent
+      Extender extender = new Extender() {
+          @Override
+          public void extend(CustomEvent.Builder builder, Map<String, String> json, GoogleAnalyticsTracker tracker) {
+              builder.addProperty("propertyName", "propertyValue");
+          }
+      };
+      uaTracker.addExtender(extender);
 
-// Then wrap the Tracker in a GoogleAnalyticsTracker instance
-uaTracker = new GoogleAnalyticsTracker(mTracker);
-
-// The proxy settings can be easily configured to prevent forwarding events to either Urban Airship or Google Analytics.
-// Enable GA tracker (enabled by default)
-uaTracker.setGoogleAnalyticsEnabled(true);
-
-// Enable UA tracker (enabled by default)
-uaTracker.setUrbanAirshipEnabled(true);
-
-// Add an Extender to add properties to the generated customEvent
-Extender extender = new Extender() {
-    @Override
-    public void extend(CustomEvent.Builder builder, Map<String, String> json, GoogleAnalyticsTracker tracker) {
-        builder.addProperty("propertyName", "propertyValue");
     }
-};
-uaTracker.addExtender(extender);
+    return uaTracker;
+  }
+```
+
+In your Activity or Fragment, you can then retrieve the tracker to create events
+
+```java
+
+// Obtain the shared Tracker instance.
+AnalyticsApplication application = (AnalyticsApplication) getApplication();
+uaTracker = application.getDefaultTracker();
 
 // Create events
 uaTracker.setScreenName("HomeScreen");
