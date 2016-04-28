@@ -30,7 +30,7 @@ first create a GoogleAnalyticsTracker instance in your Application class
 public class YourApplication extends Application {
   private GoogleAnalyticsTracker uaTracker;
 
-  synchronized public Tracker getDefaultTracker() {
+  synchronized public GoogleAnalyticsTracker getDefaultTracker() {
     if (uaTracker == null) {
       // Create a Tracker instance and wrap it in a GoogleAnalyticsTracker instance
       GoogleAnalytics analytics = GoogleAnalytics.getInstance(this);
