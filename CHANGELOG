@@ -1,0 +1,7 @@
+ChangeLog
+=========
+
+Version 1.1.0 - June 22, 2016
+=============================
+ - Updated Android Urban Airship SDK to 7.2.0.
+ - Made Extender interface public.
