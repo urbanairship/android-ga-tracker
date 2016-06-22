@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-   compile 'com.urbanairship.android:ga-tracker:1.0.+'
+   compile 'com.urbanairship.android:ga-tracker:1.1.+'
 }
 ```
 

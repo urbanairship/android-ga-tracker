@@ -179,7 +179,7 @@ public class GoogleAnalyticsTracker {
     /**
      * Interface to extend the custom event builder with more fields retrieved from the event JSON or Tracker.
      */
-    interface Extender {
+    public interface Extender {
         void extend(CustomEvent.Builder builder, Map<String, String> json, GoogleAnalyticsTracker tracker);
     }
 
