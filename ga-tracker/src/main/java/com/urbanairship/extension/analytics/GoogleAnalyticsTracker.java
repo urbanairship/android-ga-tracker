@@ -161,7 +161,7 @@ public class GoogleAnalyticsTracker {
             extender.extend(customEvent, json, this);
         }
 
-        customEvent.addEvent();
+        customEvent.create().track();
     }
 
     /**
