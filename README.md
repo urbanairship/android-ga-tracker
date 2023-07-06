@@ -1,3 +1,5 @@
+:warning: **This tracker is no longer supported**: On July 1, 2023, [Google Analytics 4 (GA4) replaced Universal Analytics](https://support.google.com/firebase/answer/9167112). For information about Airship's support for GA4 please [visit this documentation](https://docs.airship.com/integrations/google-analytics).
+
 # Google Analytics Android Extension
 
 An Android extension that proxies Google Analytics events as Urban Airship custom events. GoogleAnalyticsTracker will generate custom events, including all Google Analytics event fields and a pre-defined subset of Tracker fields, which may then be further customized by implementing an Extender. Any of the non-deprecated HitBuilders event types may be used, where the event type will be set as the custom event name.
